@@ -1,4 +1,4 @@
-from flask import Flask, render_template_string, Response
+from flask import Flask, render_template_string, request
 import matplotlib.pyplot as plt
 import mplfinance as mpf
 import FinanceDataReader as fdr
@@ -16,6 +16,7 @@ from datetime import datetime, timedelta
 
 app = Flask(__name__)
 
+symbol_list = ["000540", "240810"]
 
 def plot_segment(seg, symbol=None):
     mc = mpf.make_marketcolors(up='red', down='blue', inherit=True)
@@ -87,15 +88,20 @@ def plot_similar(symbol, date, seq_len, idx):
     return plot_source(plot_dict['symbol'], start_ts.year, start_ts.month, start_ts.day, seq_len + 10, l1_dist=plot_dict['l1_dist'])
 
 
-@app.route('/')
+@app.route("/", methods=["GET", "POST"])
 def home():
     # symbol = "000540"
-    files = os.listdir("/data2/konanbot/GPT_train/preprocess/ipynb/q_test/sim_seg/")
-    symbol = random.choice(files).split('_')[0]
-    symbol = "240810"
-    plot1 = plot_source(symbol, 2024, 11, 29, 5)
-    plot2 = plot_similar(symbol, "2024-11-29", 5, 0)
-    plot3 = plot_similar(symbol, "2024-11-29", 5, 1)
+    # files = os.listdir("/data2/konanbot/GPT_train/preprocess/ipynb/q_test/sim_seg/")
+    # symbol = random.choice(files).split('_')[0]
+    # symbol = "240810"
+    
+    selected_symbol = symbol_list[0]
+    if request.method == "POST":
+        selected_symbol = request.form.get("symbol")
+    
+    plot1 = plot_source(selected_symbol, 2024, 11, 29, 5)
+    plot2 = plot_similar(selected_symbol, "2024-11-29", 5, 0)
+    plot3 = plot_similar(selected_symbol, "2024-11-29", 5, 1)
     
     html_template = """
     <!DOCTYPE html>
@@ -135,9 +141,30 @@ def home():
                 top: 50%;
                 transform: translateY(-0%);
             }
+            .form-container {
+                margin-bottom: 20px;
+                position: absolute;
+                top: 10%;
+                left: 50%;
+                transform: translateX(-50%);
+                z-index:10;
+            }
         </style>
     </head>
     <body>
+        <div class="form-container">
+            <form method="POST">
+                <label for="symbol">Select Symbol:</label>
+                <select name="symbol" id="symbol">
+                    {% for symbol in symbol_list %}
+                    <option value="{{ symbol }}" {% if symbol == selected_symbol %}selected{% endif %}>
+                        {{ symbol }}
+                    </option>
+                    {% endfor %}
+                </select>
+                <button type="submit">Update</button>
+            </form>
+        </div>
         <div class="container">
             <img src="{{ plot1 }}" alt="Plot 1" class="plot plot-left">
             <img src="{{ plot2 }}" alt="Plot 2" class="plot plot-top-right">
@@ -146,7 +173,27 @@ def home():
     </body>
     </html>
     """
-    return render_template_string(html_template, plot1=plot1, plot2=plot2, plot3=plot3)
+    return render_template_string(html_template, 
+                                  symbol_list=["000540", "240810"], 
+                                  selected_symbol=selected_symbol, 
+                                  plot1=plot1, 
+                                  plot2=plot2, 
+                                  plot3=plot3)
+
+    # return render_template_string("""
+    # <!DOCTYPE html>
+    # <html>
+    # <body>
+    #     <form method="POST">
+    #         <select name="symbol">
+    #             <option value="000540">000540</option>
+    #             <option value="240810">240810</option>
+    #         </select>
+    #         <button type="submit">Submit</button>
+    #     </form>
+    # </body>
+    # </html>
+    # """)
 
 
 if __name__ == '__main__':
