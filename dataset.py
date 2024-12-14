@@ -1,5 +1,7 @@
+import os
 import time
 import json
+import copy
 from multiprocessing import Pool
 from scipy.spatial.distance import cityblock
 import FinanceDataReader as fdr
@@ -125,23 +127,38 @@ target_symbol = ["301300", "085310", "024800", "019540", "094840", "053060",
 data = get_price(start, end)
 normalized_data = normalization(data)
 segments = segmentation(normalized_data, seq_len=seq_len)
-for i, sym1 in enumerate(target_symbol):
-    print(f"{i+1}/{len(target_symbol)}")
-    symbols = list(data.keys())
-    symbols.remove(sym1)
-    tasks = [(sym1, idx, sym2) for sym2 in symbols]
-    
-    num_workers=20
-    with Pool(processes=num_workers, initializer=initialize_segments, initargs=(segments,)) as pool:
-        results = pool.map(search_parallel, tasks)
-    
-    flattened = [result for result_list in results for result in result_list if result]
-    flattened = sorted(flattened, key=lambda x: x['l1_dist'])[:10]
 
-    ## 저장
-    if flattened:
-        date = str(segments[sym1][idx]['date'][0]).split(' ')[0]
-        with open(f"/data2/konanbot/GPT_train/preprocess/ipynb/q_test/sim_seg/{sym1}_{date}_{seq_len}.jsonl", "w") as f:
-            for result in flattened:
-                json.dump(result, f, ensure_ascii=False)
-                f.write('\n')
+for step in range(30):
+    seg_slice = {}
+    start_t = time.time()
+    
+    for i, symbol in enumerate(segments):
+        
+        if (i+1) % 100 == 0:
+            print(f"Copy segments... {i+1}/{len(segments.keys())}, Elapsed:{time.time()-start_t:.2f}")
+            start_t = time.time()
+        seg_slice[symbol] = copy.deepcopy(segments[symbol])[:len(segments[symbol]) - step]
+
+    date = str(seg_slice[symbol][-1]['date']).split(' ')[0]
+    
+    for i, sym1 in enumerate(target_symbol):
+        print(f"{i+1}/{len(target_symbol)}")
+        symbols = list(data.keys())
+        symbols.remove(sym1)
+        tasks = [(sym1, idx, sym2) for sym2 in symbols]
+        
+        num_workers=20
+        with Pool(processes=num_workers, initializer=initialize_segments, initargs=(seg_slice,)) as pool:
+            results = pool.map(search_parallel, tasks)
+        
+        flattened = [result for result_list in results for result in result_list if result]
+        flattened = sorted(flattened, key=lambda x: x['l1_dist'])[:10]
+    
+        ## 저장
+        if flattened:
+            date = str(seg_slice[sym1][idx]['date'][0]).split(' ')[0]
+            os.makedirs(f"./sim_seg/{date}", exist_ok=True)
+            with open(f"./sim_seg/{date}/{sym1}_{date}_{seq_len}.jsonl", "w") as f:
+                for result in flattened:
+                    json.dump(result, f, ensure_ascii=False)
+                    f.write('\n')

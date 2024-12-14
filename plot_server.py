@@ -4,9 +4,6 @@ import mplfinance as mpf
 import FinanceDataReader as fdr
 
 import os
-import random
-import numpy as np
-
 import io
 import base64
 import json
@@ -37,18 +34,10 @@ def plot_segment(seg, ref_idx=None, symbol=None, kospi_seg=None):
     fig, axes = plt.subplots(1, 2, figsize=(20, 8), gridspec_kw={'width_ratios': [1, 1]})
     fig.subplots_adjust(wspace=0.4)
 
-    # 첫 번째 플롯: 메인 차트
     mpf.plot(df, type='candle', ax=axes[0], style=s)
     date_str = str(seg['date'][0]).split(' ')[0]
     title = f"{symbol}_{date_str}" if symbol else "Test"
     axes[0].set_title(title, fontsize=16, loc='center')
-
-    # fig, axlist = mpf.plot(df, type='candle', style=s, returnfig=True)
-
-    # date_str = str(seg['date'][0]).split(' ')[0]
-    # title = f"{symbol}_{date_str}" if symbol else "Test"
-    # axlist[0].set_title(title, fontsize=16, loc='center')
-    # axlist[0].set_ylabel("")
 
     if ref_idx is not None:
         ref_close = df.iloc[ref_idx]['Close']
@@ -57,15 +46,6 @@ def plot_segment(seg, ref_idx=None, symbol=None, kospi_seg=None):
 
         percentage_increase = ((subsequent_high - ref_close) / ref_close) * 100
         percentage_decrease = ((subsequent_low - ref_close) / ref_close) * 100
-
-        # axlist[0].hlines(y=ref_close, xmin=0, xmax=len(df), colors='green', linestyles='dashed', label='Ref Close')
-        # axlist[0].hlines(y=subsequent_high, xmin=0, xmax=len(df), colors='red', linestyles='dashed', label='Max High After Ref')
-        # axlist[0].hlines(y=subsequent_low, xmin=0, xmax=len(df), colors='blue', linestyles='dashed', label='Min Low After Ref')
-
-        # axlist[0].text(len(df)*1.08, subsequent_high - (subsequent_high * 0.002), f"+{percentage_increase:.2f}%", 
-        #                color='red', fontsize=18, ha='center', va='top')
-        # axlist[0].text(len(df)*1.08, subsequent_low + (subsequent_low * 0.002), f"{percentage_decrease:.2f}%", 
-        #                color='blue', fontsize=18, ha='center', va='bottom')
         
         axes[0].hlines(y=ref_close, xmin=0, xmax=len(df), colors='green', linestyles='dashed', label='Ref Close')
         axes[0].hlines(y=subsequent_high, xmin=0, xmax=len(df), colors='red', linestyles='dashed', label='Max High After Ref')
@@ -108,7 +88,7 @@ def plot_segment(seg, ref_idx=None, symbol=None, kospi_seg=None):
     return buf
 
 def load_similar(symbol, date, seq_len):
-    load_path = f"/data2/konanbot/GPT_train/preprocess/ipynb/q_test/sim_seg/{symbol}_{date}_{seq_len}.jsonl"
+    load_path = f"/data2/konanbot/GPT_train/preprocess/ipynb/q_test/sim_seg/{date}/{symbol}_{date}_{seq_len}.jsonl"
     data = []
     with open(load_path, "r") as f:
         for line in f:
@@ -151,21 +131,38 @@ def plot_similar(symbol, date, seq_len, idx):
     start_ts = pd.Timestamp(plot_dict['date'][0])
     return plot_source(plot_dict['symbol'], start_ts.year, start_ts.month, start_ts.day, seq_len + 10, l1_dist=plot_dict['l1_dist'])
 
+def get_date_list():
+    dataset_path = "/data2/konanbot/GPT_train/preprocess/ipynb/q_test/sim_seg"
+    try:
+        return sorted([name for name in os.listdir(dataset_path) if os.path.isdir(os.path.join(dataset_path, name))])
+    except FileNotFoundError:
+        return []
+
 @app.route("/", methods=["GET", "POST"])
 def home():
+    date_list = get_date_list()
+    print(date_list)
+    selected_date = date_list[0] if date_list else ""
     selected_symbol = symbol_list[0]
+
     if request.method == "POST":
         selected_symbol = request.form.get("symbol")
+        selected_date = request.form.get("date")
 
-    plot1 = plot_source(selected_symbol, 2024, 11, 28, 5)
-    plot2 = plot_similar(selected_symbol, "2024-11-28", 5, 0)
-    plot3 = plot_similar(selected_symbol, "2024-11-28", 5, 1)
-    plot4 = plot_similar(selected_symbol, "2024-11-28", 5, 2)
-    plot5 = plot_similar(selected_symbol, "2024-11-28", 5, 3)
-    plot6 = plot_similar(selected_symbol, "2024-11-28", 5, 4)
-    plot7 = plot_similar(selected_symbol, "2024-11-28", 5, 5)
-    plot8 = plot_similar(selected_symbol, "2024-11-28", 5, 6)
-    plot9 = plot_similar(selected_symbol, "2024-11-28", 5, 7)
+    print(selected_date)
+    y = int(selected_date.split("-")[0])
+    m = int(selected_date.split("-")[1])
+    d = int(selected_date.split("-")[2])
+
+    plot1 = plot_source(selected_symbol, y, m, d, 5)
+    plot2 = plot_similar(selected_symbol, selected_date, 5, 0)
+    plot3 = plot_similar(selected_symbol, selected_date, 5, 1)
+    plot4 = plot_similar(selected_symbol, selected_date, 5, 2)
+    plot5 = plot_similar(selected_symbol, selected_date, 5, 3)
+    plot6 = plot_similar(selected_symbol, selected_date, 5, 4)
+    plot7 = plot_similar(selected_symbol, selected_date, 5, 5)
+    plot8 = plot_similar(selected_symbol, selected_date, 5, 6)
+    plot9 = plot_similar(selected_symbol, selected_date, 5, 7)
 
     html_template = """
     <!DOCTYPE html>
@@ -234,6 +231,16 @@ def home():
                     </option>
                     {% endfor %}
                 </select>
+
+                <label for="date">Select Date:</label>
+                <select name="date" id="date">
+                    {% for date in date_list %}
+                    <option value="{{ date }}" {% if date == selected_date %}selected{% endif %}>
+                        {{ date }}
+                    </option>
+                    {% endfor %}
+                </select>
+
                 <button type="submit">Update</button>
             </form>
         </div>
@@ -259,7 +266,9 @@ def home():
     """
     return render_template_string(html_template, 
                                   symbol_list=symbol_list, 
+                                  date_list=date_list,
                                   selected_symbol=selected_symbol, 
+                                  selected_date=selected_date,
                                   plot1=plot1, 
                                   plot2=plot2, 
                                   plot3=plot3,
