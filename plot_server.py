@@ -118,7 +118,7 @@ def plot_source(symbol, year, month, day, seq_len, l1_dist=None):
         symbol = f"{symbol}_{l1_dist:.4f}"
         buf = plot_segment(segment, ref_idx=4, symbol=symbol, kospi_seg=kospi_seg)
     else:
-        buf = plot_segment(segment, symbol=symbol, kospi_seg=kospi_seg)
+        buf = plot_segment(segment, ref_idx=0, symbol=symbol, kospi_seg=kospi_seg)
 
     img_data = base64.b64encode(buf.getvalue()).decode()
     buf.close()
@@ -129,7 +129,7 @@ def plot_similar(symbol, date, seq_len, idx):
     data = load_similar(symbol, date, seq_len)
     plot_dict = copy.deepcopy(data[idx])
     start_ts = pd.Timestamp(plot_dict['date'][0])
-    return plot_source(plot_dict['symbol'], start_ts.year, start_ts.month, start_ts.day, seq_len + 10, l1_dist=plot_dict['l1_dist'])
+    return plot_source(plot_dict['symbol'], start_ts.year, start_ts.month, start_ts.day, seq_len + 3, l1_dist=plot_dict['l1_dist'])
 
 def get_date_list():
     dataset_path = "/data2/konanbot/GPT_train/preprocess/ipynb/q_test/sim_seg"
@@ -141,7 +141,6 @@ def get_date_list():
 @app.route("/", methods=["GET", "POST"])
 def home():
     date_list = get_date_list()
-    print(date_list)
     selected_date = date_list[0] if date_list else ""
     selected_symbol = symbol_list[0]
 
@@ -149,7 +148,6 @@ def home():
         selected_symbol = request.form.get("symbol")
         selected_date = request.form.get("date")
 
-    print(selected_date)
     y = int(selected_date.split("-")[0])
     m = int(selected_date.split("-")[1])
     d = int(selected_date.split("-")[2])

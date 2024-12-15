@@ -128,21 +128,21 @@ data = get_price(start, end)
 normalized_data = normalization(data)
 segments = segmentation(normalized_data, seq_len=seq_len)
 
-for step in range(30):
+for step in range(15):
     seg_slice = {}
-    start_t = time.time()
+    # start_t = time.time()
     
     for i, symbol in enumerate(segments):
         
-        if (i+1) % 100 == 0:
-            print(f"Copy segments... {i+1}/{len(segments.keys())}, Elapsed:{time.time()-start_t:.2f}")
-            start_t = time.time()
+        # if (i+1) % 100 == 0:
+        #     print(f"Copy segments... {i+1}/{len(segments.keys())}, Elapsed:{time.time()-start_t:.2f}")
+        #     start_t = time.time()
         seg_slice[symbol] = copy.deepcopy(segments[symbol])[:len(segments[symbol]) - step]
 
     date = str(seg_slice[symbol][-1]['date']).split(' ')[0]
     
     for i, sym1 in enumerate(target_symbol):
-        print(f"{i+1}/{len(target_symbol)}")
+        print(f"Step:{step}, {i+1}/{len(target_symbol)}")
         symbols = list(data.keys())
         symbols.remove(sym1)
         tasks = [(sym1, idx, sym2) for sym2 in symbols]
